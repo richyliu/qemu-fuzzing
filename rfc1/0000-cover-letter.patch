@@ -1,0 +1,66 @@
+From 3e1e294fc202cc9a916752dea85ba3f1c22838dd Mon Sep 17 00:00:00 2001
+From: Richard Liu <richy.liu.2002@gmail.com>
+Date: Fri, 22 Jul 2022 00:22:03 -0700
+Subject: [RFC 0/3] add snapshot/restore fuzzing device
+
+This RFC adds a virtual device for snapshot/restores within QEMU. I am working
+on this as a part of QEMU Google Summer of Code 2022. Fast snapshot/restores
+within QEMU is helpful for code fuzzing.
+
+I reused the migration code for saving and restoring virtual device and CPU
+state. As for the RAM, I am using a simple COW mmaped file to do restores.
+
+The loadvm migration function I used for doing restores only worked after I
+called it from a qemu_bh. I'm not sure if I should run the migration code in a
+separate thread (see patch 3), since currently it is running as a part of the
+device code in the vCPU thread.
+
+This is a rough first revision and feedback on the cpu and device state restores
+is appreciated.
+
+To test locally, boot up any linux distro. I used the following C file to
+interact with the PCI snapshot device:
+
+    #include <stdio.h>
+    #include <stdint.h>
+    #include <fcntl.h>
+    #include <sys/mman.h>
+    #include <unistd.h>
+
+    int main() {
+        int fd = open("/sys/bus/pci/devices/0000:00:04.0/resource0", O_RDWR | O_SYNC);
+        size_t size = 1024 * 1024;
+        uint32_t* memory = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+
+        printf("%x\n", memory[0]);
+
+        int a = 0;
+        memory[0] = 0x101; // save snapshot
+        printf("before: value of a = %d\n", a);
+        a = 1;
+        printf("middle: value of a = %d\n", a);
+        memory[0] = 0x102; // load snapshot
+        printf("after: value of a = %d\n", a);
+
+        return 0;
+    }
+
+Richard Liu (3):
+  create skeleton snapshot device and add docs
+  implement ram save/restore
+  use migration code for cpu and device save/restore
+
+ docs/devel/snapshot.rst |  26 +++++++
+ hw/i386/Kconfig         |   1 +
+ hw/misc/Kconfig         |   3 +
+ hw/misc/meson.build     |   1 +
+ hw/misc/snapshot.c      | 164 ++++++++++++++++++++++++++++++++++++++++
+ migration/savevm.c      |  84 ++++++++++++++++++++
+ migration/savevm.h      |   3 +
+ 7 files changed, 282 insertions(+)
+ create mode 100644 docs/devel/snapshot.rst
+ create mode 100644 hw/misc/snapshot.c
+
+-- 
+2.35.1
+

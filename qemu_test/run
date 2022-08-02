@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+
+set -e
+
+export PATH="/Users/richard/code/neojetset-qemu/build:$PATH"
+
+lldb="eval"
+if [[ $# = 1 ]]; then
+    lldb="lldb"
+    echo "process handle --pass true --stop false --notify false SIGUSR2"
+    echo "^ run command after a SIGUSR2"
+fi
+
+# username: root, password: alpine
+
+# if [ ! -d "/Volumes/RAMDisk" ]; then
+#     cat <<"EOF"
+# Directory "/Volumes/RAMDisk" does not exist
+# To mount ramdisk on mac:
+# diskutil erasevolume HFS+ "RAMDisk" `hdiutil attach -nomount ram://286720`
+# EOF
+#     exit 1
+# fi
+# # To eject:
+# # First, list disks: diskutil list
+# # Then, eject: diskutil eject /dev/disk4
+
+# to restore (with -incoming defer):
+# migrate_incoming "exec:cat migration_file_name"
+    # -incoming defer \
+
+    # -device edu \
+    # -device snapshot \
+
+# on guest:
+# https://unix.stackexchange.com/questions/230650/how-can-i-know-which-serial-port-corresponds-to-a-pci-card
+# - list devices with: lspci -v
+# - look for serial device
+# - correlate id with list from: setserial -g /dev/ttyS*
+# - usually on /dev/ttyS1 (?)
+
+# to connect to serial device: socat - UNIX-CONNECT:/tmp/foo
+"$lldb" -- \
+  qemu-system-x86_64 \
+    -chardev socket,path=/tmp/foo,server=on,wait=off,id=foo \
+    -device pci-serial,chardev=foo \
+    -m 128 \
+    -hda disk2.qcow2 \
+    -net nic -net user \
+    -nographic \
+    -no-reboot

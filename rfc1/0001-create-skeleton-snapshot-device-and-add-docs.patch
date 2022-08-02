@@ -1,0 +1,182 @@
+From 2e6a990812e57218cda87701d5787fe8b4d07a94 Mon Sep 17 00:00:00 2001
+From: Richard Liu <richy.liu.2002@gmail.com>
+Date: Thu, 21 Jul 2022 23:29:48 -0700
+Subject: [RFC 1/3] create skeleton snapshot device and add docs
+
+Added a simple skeleton PCI device for snapshot/restores. Added
+documentation about the snapshot/restore functionality.
+
+Signed-off-by: Richard Liu <richy.liu.2002@gmail.com>
+---
+ docs/devel/snapshot.rst | 26 +++++++++++++
+ hw/i386/Kconfig         |  1 +
+ hw/misc/Kconfig         |  3 ++
+ hw/misc/meson.build     |  1 +
+ hw/misc/snapshot.c      | 86 +++++++++++++++++++++++++++++++++++++++++
+ 5 files changed, 117 insertions(+)
+ create mode 100644 docs/devel/snapshot.rst
+ create mode 100644 hw/misc/snapshot.c
+
+diff --git a/docs/devel/snapshot.rst b/docs/devel/snapshot.rst
+new file mode 100644
+index 0000000000..a333de69b6
+--- /dev/null
++++ b/docs/devel/snapshot.rst
+@@ -0,0 +1,26 @@
++================
++Snapshot/restore
++================
++
++The ability to rapidly snapshot and restore guest VM state is a
++crucial component of fuzzing applications with QEMU. A special virtual
++device can be used by fuzzers to interface with snapshot/restores
++commands in QEMU. The virtual device should have the following
++commands supported that can be called by the guest:
++
++- snapshot: save a copy of the guest VM memory, registers, and virtual
++  device state
++- restore: restore the saved copy of guest VM state
++- coverage_location: given a location in guest memory, specifying
++  where the coverage data is to be passed to the fuzzer
++- input_location: specify where in the guest memory the fuzzing input
++  should be stored
++- done: indicates whether or not the run succeeded and that the
++  coverage data has been populated
++
++The first version of the virtual device will only accept snapshot and
++restore commands from the guest. Coverage data will be collected by
++code on the guest with source-based coverage tracking.
++
++Further expansions could include controlling the snapshot/restore from
++host and gathering code coverage information directly from TCG.
+diff --git a/hw/i386/Kconfig b/hw/i386/Kconfig
+index d22ac4a4b9..55656eddf5 100644
+--- a/hw/i386/Kconfig
++++ b/hw/i386/Kconfig
+@@ -46,6 +46,7 @@ config PC
+     select ACPI_VMGENID
+     select VIRTIO_PMEM_SUPPORTED
+     select VIRTIO_MEM_SUPPORTED
++    select SNAPSHOT
+ 
+ config PC_PCI
+     bool
+diff --git a/hw/misc/Kconfig b/hw/misc/Kconfig
+index cbabe9f78c..fe84f812f2 100644
+--- a/hw/misc/Kconfig
++++ b/hw/misc/Kconfig
+@@ -174,4 +174,7 @@ config VIRT_CTRL
+ config LASI
+     bool
+ 
++config SNAPSHOT
++    bool
++
+ source macio/Kconfig
+diff --git a/hw/misc/meson.build b/hw/misc/meson.build
+index 95268eddc0..ac8fcc5f0b 100644
+--- a/hw/misc/meson.build
++++ b/hw/misc/meson.build
+@@ -10,6 +10,7 @@ softmmu_ss.add(when: 'CONFIG_UNIMP', if_true: files('unimp.c'))
+ softmmu_ss.add(when: 'CONFIG_EMPTY_SLOT', if_true: files('empty_slot.c'))
+ softmmu_ss.add(when: 'CONFIG_LED', if_true: files('led.c'))
+ softmmu_ss.add(when: 'CONFIG_PVPANIC_COMMON', if_true: files('pvpanic.c'))
++softmmu_ss.add(when: 'CONFIG_SNAPSHOT', if_true: files('snapshot.c'))
+ 
+ # ARM devices
+ softmmu_ss.add(when: 'CONFIG_PL310', if_true: files('arm_l2x0.c'))
+diff --git a/hw/misc/snapshot.c b/hw/misc/snapshot.c
+new file mode 100644
+index 0000000000..2690b331fd
+--- /dev/null
++++ b/hw/misc/snapshot.c
+@@ -0,0 +1,86 @@
++#include "qemu/osdep.h"
++#include "qemu/units.h"
++#include "hw/pci/pci.h"
++#include "hw/hw.h"
++#include "hw/boards.h"
++#include "exec/ramblock.h"
++#include "qom/object.h"
++#include "qemu/module.h"
++#include "qapi/visitor.h"
++#include "io/channel-buffer.h"
++#include "migration/savevm.h"
++
++#define TYPE_PCI_SNAPSHOT_DEVICE "snapshot"
++typedef struct SnapshotState SnapshotState;
++DECLARE_INSTANCE_CHECKER(SnapshotState, SNAPSHOT,
++                         TYPE_PCI_SNAPSHOT_DEVICE)
++
++struct SnapshotState {
++    PCIDevice pdev;
++    MemoryRegion mmio;
++};
++
++static uint64_t snapshot_mmio_read(void *opaque, hwaddr addr, unsigned size)
++{
++    return 0;
++}
++
++static void snapshot_mmio_write(void *opaque, hwaddr addr, uint64_t val,
++                unsigned size)
++{
++}
++
++static const MemoryRegionOps snapshot_mmio_ops = {
++    .read = snapshot_mmio_read,
++    .write = snapshot_mmio_write,
++    .endianness = DEVICE_NATIVE_ENDIAN,
++    .valid = {
++        .min_access_size = 4,
++        .max_access_size = 8,
++    },
++    .impl = {
++        .min_access_size = 4,
++        .max_access_size = 8,
++    },
++
++};
++
++static void pci_snapshot_realize(PCIDevice *pdev, Error **errp)
++{
++    SnapshotState *snapshot = SNAPSHOT(pdev);
++
++    memory_region_init_io(&snapshot->mmio, OBJECT(snapshot), &snapshot_mmio_ops, snapshot,
++                    "snapshot-mmio", 1 * MiB);
++    pci_register_bar(pdev, 0, PCI_BASE_ADDRESS_SPACE_MEMORY, &snapshot->mmio);
++}
++
++static void snapshot_class_init(ObjectClass *class, void *data)
++{
++    DeviceClass *dc = DEVICE_CLASS(class);
++    PCIDeviceClass *k = PCI_DEVICE_CLASS(class);
++
++    k->realize = pci_snapshot_realize;
++    k->vendor_id = PCI_VENDOR_ID_QEMU;
++    k->device_id = 0xf987;
++    k->revision = 0x10;
++    k->class_id = PCI_CLASS_OTHERS;
++    set_bit(DEVICE_CATEGORY_MISC, dc->categories);
++}
++
++static void pci_snapshot_register_types(void)
++{
++    static InterfaceInfo interfaces[] = {
++        { INTERFACE_CONVENTIONAL_PCI_DEVICE },
++        { },
++    };
++    static const TypeInfo snapshot_info = {
++        .name          = TYPE_PCI_SNAPSHOT_DEVICE,
++        .parent        = TYPE_PCI_DEVICE,
++        .instance_size = sizeof(SnapshotState),
++        .class_init    = snapshot_class_init,
++        .interfaces = interfaces,
++    };
++
++    type_register_static(&snapshot_info);
++}
++type_init(pci_snapshot_register_types)
+-- 
+2.35.1
+

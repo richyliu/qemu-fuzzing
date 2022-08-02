@@ -1,0 +1,6 @@
+[submodule "my_work/cJSON"]
+	path = fuzzer_bridge/cJSON
+	url = git@github.com:DaveGamble/cJSON.git
+[submodule "my_work/openssl"]
+	path = fuzzer_bridge/openssl
+	url = git@github.com:openssl/openssl.git
