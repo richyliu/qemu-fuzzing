@@ -1,8 +1,12 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <assert.h>
+#include <time.h>
 
 #include "serial.h"
+
+/* #define SERIAL_PORT "/dev/ttyS0" */
+#define SERIAL_PORT "/dev/ttys003"
 
 /* #define PRINT_VERBOSE */
 /* #define PRINT_TRACE_CMP */
@@ -149,21 +153,43 @@ void __sanitizer_cov_trace_const_cmp8(uint64_t Arg1, uint64_t Arg2) {
 
 int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size);
 
-int main() {
-    /* open_serial_port("/dev/ttyS0", 115200); */
-
-    uint8_t data[] = {2, 2, 1, 2};
-    /* uint8_t data[] = {0, 2, 2, 1, 2}; */
-
-    trace_counter = 0;
-    LLVMFuzzerTestOneInput(data, sizeof(data));
-    printf("trace_counter: %llu\n", trace_counter);
-
+void run_fuzzer_once(uint8_t* data, size_t size) {
     trace_counter = 0;
     LLVMFuzzerTestOneInput(data, sizeof(data));
     printf("trace_counter: %llu\n", trace_counter);
 
     print_pcs();
     print_counters();
+}
+
+int main() {
+    int fd = open_serial_port(SERIAL_PORT, 115200);
+
+    uint8_t data[] = {2, 2, 1, 2};
+    /* uint8_t data[] = {0, 2, 2, 1, 2}; */
+
+    while (1) {
+        uint8_t cmd[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
+        read_port(fd, cmd, sizeof(cmd));
+
+        switch ((char)cmd[0]) {
+            case '\0':
+                break;
+            case '.':
+                run_fuzzer_once(data, sizeof(data));
+                puts("writing...");
+                char res[] = "ok\n";
+                write_port(fd, (uint8_t*)res, sizeof(res));
+                puts("done");
+                break;
+            default:
+                printf("%s", cmd);
+                break;
+        }
+
+        /* nanosleep((const struct timespec[]){{0, 10 * 1000000L}}, NULL); */
+        nanosleep((const struct timespec[]){{0, 100 * 1000000L}}, NULL);
+    }
+
     return 0;
 }

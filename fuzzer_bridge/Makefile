@@ -1,6 +1,6 @@
-CC := /opt/homebrew/Cellar/llvm@12/12.0.1_1/bin/clang
+CC := /opt/homebrew/opt/llvm/bin/clang
 
-all: test
+all: test server
 
 libclient.a: CFLAGS := -g -O0
 libclient.a: client.o serial.o
@@ -26,6 +26,8 @@ libtestlib.so: testlib.o
 	$(CC) $(LDFLAGS) -shared -o libtestlib.so testlib.o
 
 # end of makefile of program being fuzzed
+
+server: server.o
 
 clean:
 	rm -f test test.o
