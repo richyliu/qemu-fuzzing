@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdint.h>
+#include <stddef.h>
+#include <sys/types.h>
 #include <termios.h>
 
 // Opens the specified serial port, sets it up for binary communication,

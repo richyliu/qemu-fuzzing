@@ -14,8 +14,8 @@ libclient.a: client.o serial.o
 # 2. Add the static library libclient.a when linking the final executable (the
 #    one containing the LLVMFuzzerTestOneInput function).
 
-test: CFLAGS := -g -O0 -fsanitize=fuzzer-no-link -I./cJSON/
-test: LDFLAGS += -L. -lcjson -fsanitize=fuzzer-no-link
+test: CFLAGS := -g -O0 -fsanitize=fuzzer-no-link
+test: LDFLAGS += -fsanitize=fuzzer-no-link
 # to integrate with client.so: build with fuzzer-no-link instead of fuzzer
 # and statically link with libclient.a for the main function
 test: test.o libtestlib.so libclient.a

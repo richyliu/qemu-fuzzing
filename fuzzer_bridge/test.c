@@ -1,8 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#include <cJSON.h>
-
 #include "testlib.h"
 
 void my_main(const uint8_t* data, size_t len) {
@@ -26,19 +24,6 @@ void my_main(const uint8_t* data, size_t len) {
 }
 
 int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size) {
-    puts("before cjson code");
-    char string[] = "{\n\
-        \"foo\": \"bar\",\n\
-        \"bar\": \"baz\",\n\
-        \"baz\": {\n\
-            \"qux\": [\n\
-                \"quux\",\n\
-                \"corge\"\n\
-            ]\n\
-        }\n\
-    }";
-    cJSON *json = cJSON_Parse(string);
-    puts("after cjson code");
-    /* my_main(Data, Size); */
+    my_main(Data, Size);
     return 0;
 }
