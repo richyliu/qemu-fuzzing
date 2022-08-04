@@ -6,7 +6,7 @@
 #include "serial.h"
 
 /* #define SERIAL_PORT "/dev/ttyS0" */
-#define SERIAL_PORT "/dev/ttys003"
+#define SERIAL_PORT "/dev/ttyS4"
 
 /* #define PRINT_VERBOSE */
 /* #define PRINT_TRACE_CMP */
@@ -167,8 +167,6 @@ int main() {
 
     uint8_t data[] = {2, 2, 1, 2};
     /* uint8_t data[] = {0, 2, 2, 1, 2}; */
-    run_fuzzer_once(data, sizeof(data));
-    return 0;
 
     while (1) {
         uint8_t cmd[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};

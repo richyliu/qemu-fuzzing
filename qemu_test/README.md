@@ -33,3 +33,11 @@
 ## Known issues
 
 - on m1 mac, stepping in lldb after `__builtin_trap()` does not work
+
+
+## creating ubuntu image
+
+https://powersj.io/posts/ubuntu-qemu-cli/
+- download ubuntu cloud image
+- generate seed image with `cloud-localds seed.img user-data.yaml metadata.yaml`
+- log in with ssh: `ssh -p 2222 ubuntu@0.0.0.0`

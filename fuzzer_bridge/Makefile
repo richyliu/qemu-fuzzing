@@ -2,7 +2,6 @@ CC := /opt/homebrew/opt/llvm/bin/clang
 
 UNAME := $(shell uname -s)
 ifeq ($(UNAME), Linux)
-  DO_STATIC := -static
   CC := clang-12
 endif
 

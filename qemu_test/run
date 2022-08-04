@@ -42,10 +42,12 @@ fi
 # to connect to serial device: socat - UNIX-CONNECT:/tmp/foo
 "$lldb" -- \
   qemu-system-x86_64 \
+    -m 2048 \
+    -drive if=virtio,format=qcow2,file=ubuntu.qcow2 \
+    -drive if=virtio,format=raw,file=seed.img \
+    -device virtio-net-pci,netdev=net0 \
+    -netdev user,id=net0,hostfwd=tcp::2222-:22 \
     -chardev socket,path=/tmp/foo,server=on,wait=off,id=foo \
     -device pci-serial,chardev=foo \
-    -m 128 \
-    -hda disk2.qcow2 \
-    -net nic -net user \
-    -nographic \
-    -no-reboot
+    -enable-kvm \
+    -nographic

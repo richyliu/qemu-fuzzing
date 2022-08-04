@@ -28,3 +28,14 @@ CC=/opt/homebrew/opt/llvm/bin/clang ./config enable-fuzz-libfuzzer \
 then `make -j4`
 
 run one of the targets in fuzz/
+
+# find serial port on guest
+
+list pci controllers: `lspci`
+look for "Serial controller"
+more info with `lspci -vs4` (replace `4` with actual pci number)
+correlate IRQ number with result from `setserial -g /dev/ttyS*`
+
+``` sh
+sudo setserial -g /dev/ttyS* | grep "IRQ: $(lspci -v | grep -A3 "Serial controller" | grep IRQ | sed -e 's/.*IRQ \([0-9]\+\)$/\1/')" | cut -d, -f1
+```
