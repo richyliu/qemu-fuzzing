@@ -1,7 +1,13 @@
 #include <stdio.h>
 #include <stdint.h>
 
-#include "testlib.h"
+int fib(int n) {
+    printf("fib(%d)\n", n);
+    if (n <= 1) {
+        return n;
+    }
+    return fib(n - 1) + fib(n - 2);
+}
 
 void my_main(const uint8_t* data, size_t len) {
     // find the maximum value in the array
