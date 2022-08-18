@@ -2,7 +2,7 @@
 for local testing sockets:
 
 ``` sh
-socat -d -d pty,raw,echo=0 UNIX-LISTEN:/tmp/foo
+socat -d -d pty,raw,echo=0 UNIX-LISTEN:/tmp/my_snapshot
 ```
 
 creates a pty (simulates guest) and a socket (simulates host)

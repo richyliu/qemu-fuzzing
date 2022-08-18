@@ -2,11 +2,15 @@
 #include <stdint.h>
 #include <assert.h>
 #include <time.h>
+#include <string.h>
+#include <fcntl.h>
+#include <sys/mman.h>
 
 #include "serial.h"
 
-/* #define SERIAL_PORT "/dev/ttyS0" */
 #define SERIAL_PORT "/dev/ttyS4"
+
+#define MAX_INPUT_SIZE 0x400
 
 /* #define PRINT_VERBOSE */
 /* #define PRINT_TRACE_CMP */
@@ -30,7 +34,7 @@ static size_t pcs_array_idx = 0;
 static struct ptr_pair counters_array[MAX_COUNTER_ARRAY_SIZE];
 static size_t counters_array_idx = 0;
 
-static uint64_t trace_counter = 0;
+static size_t trace_counter = 0;
 
 void print_pcs() {
 #ifdef PRINT_VERBOSE
@@ -155,41 +159,83 @@ int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size);
 
 void run_fuzzer_once(uint8_t* data, size_t size) {
     trace_counter = 0;
-    LLVMFuzzerTestOneInput(data, sizeof(data));
-    printf("trace_counter: %llu\n", trace_counter);
+    LLVMFuzzerTestOneInput(data, size);
+    printf("trace_counter: %zu\n", trace_counter);
 
     print_pcs();
     print_counters();
 }
 
 int main() {
-    int fd = open_serial_port(SERIAL_PORT, 115200);
-
-    uint8_t data[] = {2, 2, 1, 2};
-    /* uint8_t data[] = {0, 2, 2, 1, 2}; */
-
-    while (1) {
-        uint8_t cmd[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
-        read_port(fd, cmd, sizeof(cmd));
-
-        switch ((char)cmd[0]) {
-            case '\0':
-                break;
-            case '.':
-                run_fuzzer_once(data, sizeof(data));
-                puts("writing...");
-                char res[] = "ok\n";
-                write_port(fd, (uint8_t*)res, sizeof(res));
-                puts("done");
-                break;
-            default:
-                printf("%s", cmd);
-                break;
-        }
-
-        /* nanosleep((const struct timespec[]){{0, 10 * 1000000L}}, NULL); */
-        nanosleep((const struct timespec[]){{0, 100 * 1000000L}}, NULL);
+    // communicate with PCI device for snapshotting
+    int pci_fd = open("/sys/bus/pci/devices/0000:00:04.0/resource0", O_RDWR | O_SYNC);
+    uint32_t* pci_memory = mmap(NULL, 1024 * 1024, PROT_READ | PROT_WRITE, MAP_SHARED, pci_fd, 0);
+    if (pci_memory == MAP_FAILED) {
+        perror("mmap");
+        return 1;
     }
 
-    return 0;
+    int fd = open_serial_port(SERIAL_PORT, 115200);
+    if (fd < 0) {
+        perror("open_serial_port");
+        return 1;
+    }
+
+    uint8_t data[MAX_INPUT_SIZE];
+    memset(data, 0, sizeof(data));
+
+    size_t size = 0;
+
+    // do initialization work here...
+    puts("initializing...");
+
+    // initialization done
+    puts("initialization done");
+
+    uint8_t init_done = 'I';
+    write_port(fd, &init_done, sizeof(init_done));
+    puts("sent init_done");
+    puts("ready for snapshotting");
+
+    // save a snapshot
+    pci_memory[0] = 0x101;
+    puts("in snapshotted code");
+
+    // wait for next input
+    puts("waiting for input...");
+    uint8_t input_ready = 0;
+    while (input_ready != 'R') {
+        if (read_port(fd, &input_ready, sizeof(input_ready)) > 0) {
+            printf("got: %02x\n", input_ready);
+        }
+    }
+
+    // read input data
+    puts("reading input...");
+    read_port(fd, (uint8_t*)&size, sizeof(size));
+    if (size > MAX_INPUT_SIZE) {
+        puts("input too large");
+        return 1;
+    }
+    read_port(fd, data, size);
+
+    printf("running with input: size: %zu\n", size);
+    for (size_t i = 0; i < size; i++) {
+        printf("%02x ", data[i]);
+    }
+    printf("\n");
+
+    run_fuzzer_once(data, size);
+
+    puts("writing output...");
+    char res[] = "ok\n";
+    write_port(fd, (uint8_t*)res, sizeof(res));
+    puts("done");
+
+    puts("restoring...");
+    // restore snapshot
+    pci_memory[0] = 0x102;
+
+    puts("ERROR: should not reach here");
+    return 1;
 }

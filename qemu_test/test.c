@@ -6,8 +6,7 @@
 
 int main() {
     int fd = open("/sys/bus/pci/devices/0000:00:04.0/resource0", O_RDWR | O_SYNC);
-    size_t size = 1024 * 1024;
-    uint32_t* memory = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    uint32_t* memory = mmap(NULL, 1024 * 1024, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 
     printf("%x\n", memory[0]);
 

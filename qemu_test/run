@@ -13,14 +13,15 @@ fi
 
 # username: root, password: alpine
 
-# if [ ! -d "/Volumes/RAMDisk" ]; then
-#     cat <<"EOF"
-# Directory "/Volumes/RAMDisk" does not exist
-# To mount ramdisk on mac:
-# diskutil erasevolume HFS+ "RAMDisk" `hdiutil attach -nomount ram://286720`
-# EOF
-#     exit 1
-# fi
+if [ ! -d "/Volumes/RAMDisk" ]; then
+    cat << 'EOF'
+Directory "/Volumes/RAMDisk" does not exist
+To mount ramdisk on mac:
+diskutil erasevolume HFS+ "RAMDisk" `hdiutil attach -nomount ram://286720`
+EOF
+    exit 1
+fi
+
 # # To eject:
 # # First, list disks: diskutil list
 # # Then, eject: diskutil eject /dev/disk4
@@ -39,15 +40,16 @@ fi
 # - correlate id with list from: setserial -g /dev/ttyS*
 # - usually on /dev/ttyS1 (?)
 
-# to connect to serial device: socat - UNIX-CONNECT:/tmp/foo
+# to connect to serial device: socat - UNIX-CONNECT:/tmp/my_snapshot
 "$lldb" -- \
   qemu-system-x86_64 \
-    -m 2048 \
-    -drive if=virtio,format=qcow2,file=ubuntu.qcow2 \
+    -m 128 \
+    -device snapshot \
+    -drive if=virtio,format=qcow2,file=disk2.qcow2 \
     -drive if=virtio,format=raw,file=seed.img \
     -device virtio-net-pci,netdev=net0 \
     -netdev user,id=net0,hostfwd=tcp::2222-:22 \
-    -chardev socket,path=/tmp/foo,server=on,wait=off,id=foo \
-    -device pci-serial,chardev=foo \
-    -enable-kvm \
+    -chardev socket,path=/tmp/my_snapshot,server=on,wait=off,id=snapshot \
+    -device pci-serial,chardev=snapshot \
+    -no-reboot \
     -nographic
