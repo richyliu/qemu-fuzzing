@@ -5,7 +5,7 @@
 #include <unistd.h>
 
 int main() {
-    int fd = open("/sys/bus/pci/devices/0000:00:04.0/resource0", O_RDWR | O_SYNC);
+    int fd = open("/sys/bus/pci/devices/0000:00:05.0/resource0", O_RDWR | O_SYNC);
     uint32_t* memory = mmap(NULL, 1024 * 1024, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
 
     printf("%x\n", memory[0]);

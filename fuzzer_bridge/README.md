@@ -13,7 +13,7 @@ creates a pty (simulates guest) and a socket (simulates host)
 compile openssl:
 
 ``` sh
-CC=/opt/homebrew/opt/llvm/bin/clang ./config enable-fuzz-libfuzzer \
+CC=/bin/clang-12 ./config enable-fuzz-libfuzzer \
         --with-fuzzer-lib=../libclient.a \
         -DPEDANTIC enable-asan enable-ubsan no-shared \
         -DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION \

@@ -9,8 +9,6 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#define BUF_SIZE 500
-
 #define MAX_INPUT_SIZE 0x400
 
 int socket_connect(char* path) {
@@ -44,7 +42,6 @@ int socket_connect(char* path) {
 
 int main(int argc, char *argv[]) {
     ssize_t numRead;
-    char buf[BUF_SIZE];
     int fd_snapshot = socket_connect("/tmp/my_snapshot");
 
     uint8_t data[MAX_INPUT_SIZE];
@@ -52,27 +49,42 @@ int main(int argc, char *argv[]) {
 
     size_t size = 0;
 
-    data[size++] = 0x02;
-    data[size++] = 0x03;
+    data[size++] = 0;
+    data[size++] = 0;
+    data[size++] = 1;
 
     // wait for client to be initialized
+    puts("Waiting for client to be initialized...");
     uint8_t recv = 0;
     while (recv != 'I') {
         read(fd_snapshot, &recv, 1);
     }
     puts("Client initialized");
 
-    // notify client that input is ready
-    write(fd_snapshot, "R", 1);
+    for (int i = 1; i < 10; i++) {
+        // update input
+        data[2] = i;
 
-    // send inputs
-    puts("sending inputs...");
-    write(fd_snapshot, (uint8_t*)&size, sizeof(size));
-    write(fd_snapshot, data, size);
-    puts("sent inputs");
+        // notify client that input is ready
+        write(fd_snapshot, "R", 1);
 
-    read(fd_snapshot, buf, BUF_SIZE);
-    printf("%s", buf);
+        // send inputs
+        puts("sending inputs...");
+        write(fd_snapshot, (uint8_t*)&size, sizeof(size));
+        write(fd_snapshot, data, size);
+        puts("sent inputs");
+
+        // wait for client to be done
+        puts("Waiting for client to be done...");
+        char res = '\0';
+        while (res != 'D') {
+            read(fd_snapshot, &res, 1);
+        }
+        puts("Client done");
+        size_t trace_counter = 0;
+        read(fd_snapshot, &trace_counter, sizeof(trace_counter));
+        printf("response: %c, trace_counter: %zu\n", res, trace_counter);
+    }
 
     close(fd_snapshot);
 

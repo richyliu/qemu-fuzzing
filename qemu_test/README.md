@@ -41,3 +41,25 @@ https://powersj.io/posts/ubuntu-qemu-cli/
 - download ubuntu cloud image
 - generate seed image with `cloud-localds seed.img user-data.yaml metadata.yaml`
 - log in with ssh: `ssh -p 2222 ubuntu@0.0.0.0`
+
+## connecting to tmux instance
+
+``` sh
+( exec </dev/tty; exec <&1; tmux -S /home/richyliu/qemu-fuzzing/none attach )
+```
+
+``` sh
+➜  fuzzer_bridge git:(main) ✗ nc -U /tmp/qemu_qmp
+➜  fuzzer_bridge git:(main) ✗ sudo chmod 777 /tmp/qemu_qmp
+
+➜  fuzzer_bridge git:(main) ✗ make && scp -P 2222 test ubuntu@0.0.0.0:/home/ubuntu/
+```
+
+```
+{"execute":"qmp_capabilities"}
+{ "execute": "fast-snapshot-save", "arguments": { "filename": "/dev/shm/snapshot0" } }
+{ "execute": "fast-snapshot-load", "arguments": { "filename": "/dev/shm/snapshot0" } }
+
+{"execute":"stop"}
+{"execute":"cont"}
+```

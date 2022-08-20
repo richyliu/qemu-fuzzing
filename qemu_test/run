@@ -2,8 +2,6 @@
 
 set -e
 
-export PATH="/Users/richard/code/neojetset-qemu/build:$PATH"
-
 lldb="eval"
 if [[ $# = 1 ]]; then
     lldb="lldb"
@@ -11,20 +9,9 @@ if [[ $# = 1 ]]; then
     echo "^ run command after a SIGUSR2"
 fi
 
+export PATH="/home/richyliu/neojetset-qemu/build:$PATH"
+
 # username: root, password: alpine
-
-if [ ! -d "/Volumes/RAMDisk" ]; then
-    cat << 'EOF'
-Directory "/Volumes/RAMDisk" does not exist
-To mount ramdisk on mac:
-diskutil erasevolume HFS+ "RAMDisk" `hdiutil attach -nomount ram://286720`
-EOF
-    exit 1
-fi
-
-# # To eject:
-# # First, list disks: diskutil list
-# # Then, eject: diskutil eject /dev/disk4
 
 # to restore (with -incoming defer):
 # migrate_incoming "exec:cat migration_file_name"
@@ -40,16 +27,21 @@ fi
 # - correlate id with list from: setserial -g /dev/ttyS*
 # - usually on /dev/ttyS1 (?)
 
+# to connect over ssh:
+# ssh -p 2222 ubuntu@0.0.0.0
+
 # to connect to serial device: socat - UNIX-CONNECT:/tmp/my_snapshot
+# NOTE: important to put -device snapshot after -device pci-serial
 "$lldb" -- \
   qemu-system-x86_64 \
-    -m 128 \
-    -device snapshot \
+    -m 512 \
     -drive if=virtio,format=qcow2,file=disk2.qcow2 \
     -drive if=virtio,format=raw,file=seed.img \
     -device virtio-net-pci,netdev=net0 \
     -netdev user,id=net0,hostfwd=tcp::2222-:22 \
     -chardev socket,path=/tmp/my_snapshot,server=on,wait=off,id=snapshot \
     -device pci-serial,chardev=snapshot \
+    -device snapshot \
     -no-reboot \
+    -enable-kvm \
     -nographic
