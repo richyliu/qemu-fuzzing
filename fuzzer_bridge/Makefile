@@ -5,10 +5,10 @@ ifeq ($(UNAME), Linux)
   CC := clang-12
 endif
 
-all: test server
+all: test server reset_mem
 
 libclient.a: CFLAGS := -g -O0
-libclient.a: client.o serial.o
+libclient.a: client.o coverage.o
 	$(AR) -rcs $@ $^
 
 # makefile of program being fuzzed
@@ -30,9 +30,12 @@ test: test.o libclient.a
 
 server: server.o
 
+reset_mem: reset_mem.o
+
 clean:
 	rm -f test test.o
-	rm -f serial.o client.o libclient.a
+	rm -f client.o coverage.o libclient.a
 	rm -f server server.o
+	rm -f reset_mem reset_mem.o
 
 fresh: clean all

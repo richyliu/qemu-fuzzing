@@ -32,6 +32,8 @@ export PATH="/home/richyliu/neojetset-qemu/build:$PATH"
 
 # to connect to serial device: socat - UNIX-CONNECT:/tmp/my_snapshot
 # NOTE: important to put -device snapshot after -device pci-serial
+    # -chardev socket,path=/tmp/my_snapshot,server=on,wait=off,id=snapshot \
+    # -device pci-serial,chardev=snapshot \
 "$lldb" -- \
   qemu-system-x86_64 \
     -m 512 \
@@ -39,8 +41,6 @@ export PATH="/home/richyliu/neojetset-qemu/build:$PATH"
     -drive if=virtio,format=raw,file=seed.img \
     -device virtio-net-pci,netdev=net0 \
     -netdev user,id=net0,hostfwd=tcp::2222-:22 \
-    -chardev socket,path=/tmp/my_snapshot,server=on,wait=off,id=snapshot \
-    -device pci-serial,chardev=snapshot \
     -device snapshot \
     -no-reboot \
     -enable-kvm \
