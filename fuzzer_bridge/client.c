@@ -58,14 +58,12 @@ static int pagemap_get_entry(PagemapEntry *entry, int pagemap_fd, uintptr_t vadd
 static uintptr_t virt_to_phys_user(uintptr_t vaddr)
 {
     char pagemap_file[] = "/proc/self/pagemap";
-    static int pagemap_fd = -1;
+    int pagemap_fd = -1;
 
-    if (pagemap_fd == -1) {
-        pagemap_fd = open(pagemap_file, O_RDONLY);
-        if (pagemap_fd < 0) {
-            perror("failed to open pagemap");
-            exit(1);
-        }
+    pagemap_fd = open(pagemap_file, O_RDONLY);
+    if (pagemap_fd < 0) {
+        perror("failed to open pagemap");
+        exit(1);
     }
 
     PagemapEntry entry;
@@ -73,72 +71,69 @@ static uintptr_t virt_to_phys_user(uintptr_t vaddr)
         puts("failed to get pagemap entry");
         exit(1);
     }
-    /* close(pagemap_fd); */
+
+    close(pagemap_fd);
 
     return (entry.pfn * PAGE_SIZE) + (vaddr % PAGE_SIZE);
 }
 
-#define MAX_TABLE_SIZE 0x400
-
-// arrays of pointers to (partial) pages. Last item is the end page (if not a
-// page boundary)
-struct exported_coverage_info {
-    uintptr_t pcs_paddrs[MAX_TABLE_SIZE];
-    size_t pcs_count;
-    uintptr_t counters_paddrs[MAX_TABLE_SIZE];
-    size_t counters_count;
-    uintptr_t trace_paddrs[MAX_TABLE_SIZE];
-    size_t trace_count;
-};
-
-// convert contiguous virtual memory to array of physical addresses
-static void paddr_array(uintptr_t paddrs[], size_t *count, size_t max_size, uintptr_t start, uintptr_t end) {
-    size_t page_size = PAGE_SIZE;
-
-    // possible start half page
-    if (start % page_size) {
-        // copy start page
-        if (*count == max_size) {
-            printf("paddr_array: array full\n");
-            exit(1);
-        }
-        paddrs[(*count)++] = virt_to_phys_user(start);
-        start = (start & ~(page_size - 1));
-    }
-
-    while (start < end) {
-        if (*count == max_size) {
-            printf("paddr_array: array full\n");
-            exit(1);
-        }
-        paddrs[(*count)++] = virt_to_phys_user(start);
-        start = start + page_size;
-    }
-
-    // possible end half page
-    if (end % page_size) {
-        // copy end page
-        if (*count == max_size) {
-            printf("paddr_array: array full\n");
-            exit(1);
-        }
-        paddrs[(*count)++] = virt_to_phys_user(end);
-    }
-    printf("count: %zu, max: %zu\n", *count, max_size);
-}
-
 // write coverage info to mem
-static void write_coverage_info(uint8_t* mem) {
-    struct exported_coverage_info info;
-    struct coverage_t* coverage_info = get_coverage_info();
-    info.pcs_count = 0;
-    info.counters_count = 0;
-    info.trace_count = 0;
+static void write_coverage_info(uint8_t* shared_mem, struct coverage_t* coverage_info) {
+    // TODO: write coverage info to host
+    struct {
+        // these sizes are for the array (8 bytes per value)
+        uint64_t pcs_array_size;
+        uint64_t counters_array_size;
+        uint64_t trace_array_size;
+    } coverage_info_header;
 
-    paddr_array(info.pcs_paddrs, &info.pcs_count, MAX_TABLE_SIZE, coverage_info->pcs_array_start, coverage_info->pcs_array_end);
-    paddr_array(info.counters_paddrs, &info.counters_count, MAX_TABLE_SIZE, coverage_info->counters_array_start, coverage_info->counters_array_end);
+    // TEMP: test
+    uint64_t* data = malloc(0x1000);
+    memset(data, 1, 0x1000);
+    data[1] = 0xaabb;
+    data[0x101] = 0xccdd;
+    data[0x100] = 0xeeff;
+    data[0x1ff] = 0x1122;
+    coverage_info->pcs_array_start = (uintptr_t)data;
+    coverage_info->pcs_array_end = (uintptr_t)data + 0x1000;
 
-    memcpy(mem, &info, sizeof(info));
+    coverage_info_header.pcs_array_size = (coverage_info->pcs_array_end - coverage_info->pcs_array_start) / sizeof(uint64_t);
+    coverage_info_header.counters_array_size = (coverage_info->counters_array_end - coverage_info->counters_array_start) / sizeof(uint64_t);
+    coverage_info_header.trace_array_size = coverage_info->trace_array_size;
+
+    memcpy(shared_mem + 8, &coverage_info_header, sizeof(coverage_info_header));
+    shared_mem[0] = 2;
+    while(shared_mem[0] != 0xff); // synchronize
+    printf("coverage_info_header: %zu %zu %zu\n", coverage_info_header.pcs_array_size, coverage_info_header.counters_array_size, coverage_info_header.trace_array_size);
+
+    memset(shared_mem + 0x800, 0, 0x800);
+
+    // write pcs array
+    uint64_t remaining_bytes = coverage_info_header.pcs_array_size * 8;
+    int i = 0;
+    while (remaining_bytes > 0) {
+        printf("shared 0 before: %d\n", ((uint32_t*)shared_mem)[0]);
+        printf("%d\n", ((uint32_t*)shared_mem)[1]);
+        if (remaining_bytes >= 0x800) {
+            memcpy(shared_mem + 0x800, (void*)coverage_info->pcs_array_start + i * 0x800, 0x800);
+            remaining_bytes -= 0x800;
+        } else {
+            memcpy(shared_mem + 0x800, (void*)coverage_info->pcs_array_start + i * 0x800, remaining_bytes);
+            remaining_bytes = 0;
+        }
+        ((uint32_t*)shared_mem)[0] = i;
+        ((uint32_t*)shared_mem)[1] = -1;
+        // wait for recv
+        printf("shared 0 after: %d\n", ((uint32_t*)shared_mem)[0]);
+        printf("%d\n", ((uint32_t*)shared_mem)[1]);
+        while (((uint32_t*)shared_mem)[1] != i);
+        i++;
+    }
+
+    for (int i = 0 ; i < coverage_info_header.pcs_array_size; i++) {
+        printf("%3d: %lx\n", i, *(uint64_t*)(coverage_info->pcs_array_start + i*8));
+    }
+
 }
 
 /**
@@ -174,7 +169,7 @@ static uint8_t* setup_shared_mem(uint8_t* pci_memory) {
     return mem;
 }
 
-int main(void) {
+int main(int argc, char** argv) {
     int pci_fd;
     uint8_t* pci_memory;
     uint32_t* pci_memory_command;
@@ -182,6 +177,7 @@ int main(void) {
     size_t size;
     uint8_t* shared_mem;
     struct coverage_t* coverage_info;
+    int do_snapshots = argc > 1;
 
     assert(PAGE_SIZE == PAGE_SIZE);
     setbuf(stdout, NULL);
@@ -202,10 +198,10 @@ int main(void) {
     puts("initializing...");
 
     shared_mem = setup_shared_mem(pci_memory);
+    // clear shared memory
+    memset(shared_mem, 0, PAGE_SIZE);
     // test write to shared memory
     shared_mem[0] = 0x43;
-    /* // trigger msync */
-    /* *pci_memory_command = 0x201; */
 
     // initialization done
     puts("initialization done");
@@ -213,7 +209,8 @@ int main(void) {
     puts("ready for snapshotting");
 
     // save a snapshot
-    *pci_memory_command = 0x101;
+    if (do_snapshots)
+        *pci_memory_command = 0x101;
     puts("in snapshotted code");
 
     // read input data
@@ -236,19 +233,22 @@ int main(void) {
 
     puts("writing coverage info...");
     coverage_info = get_coverage_info();
-    // TODO: write coverage info to host
-    /* write_coverage_info((uint8_t*)pci_memory + 0x1000); */
-    shared_mem[0] = 2;
-    *(uint64_t*)(shared_mem + 8) = coverage_info->trace_counter;
-    /* // trigger msync */
-    /* *pci_memory_command = 0x201; */
+    write_coverage_info(shared_mem, coverage_info);
     puts("done writing coverage info");
 
     puts("restoring...");
     // restore snapshot
-    *pci_memory_command = 0x102;
+    if (do_snapshots)
+        *pci_memory_command = 0x102;
 
     puts("ERROR: should not reach here");
 
-    return 1;
+    // release shared memory
+    *pci_memory_command = 0x202;
+    puts("released shared memory");
+
+    // clear shared memory
+    memset(shared_mem, 0, PAGE_SIZE);
+
+    return 0;
 }

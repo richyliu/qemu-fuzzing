@@ -28,6 +28,7 @@ test: test.o libclient.a
 
 # end of makefile of program being fuzzed
 
+server: CFLAGS := -g -O0
 server: server.o
 
 reset_mem: reset_mem.o
