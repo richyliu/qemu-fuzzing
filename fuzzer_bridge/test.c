@@ -11,18 +11,17 @@ int fib(int n) {
 
 void my_main(const uint8_t* data, size_t len) {
     int a = 1;
-    if (data[2] == 0) {
-        a = 0;
-    } else if (data[2] == 1) {
+    if (data[1] == 1) {
         a = 0;
     } else if (data[2] == 2) {
         a = 0;
     } else if (data[2] == 3) {
         a = 0;
-    } else if (data[2] == 4) {
+    } else if (data[0] == 25) {
         a = 0;
     }
-    if (a == 2) {
+    if (a == 0) {
+        // cause a crash
         *(volatile int*)0 = 0;
     }
 

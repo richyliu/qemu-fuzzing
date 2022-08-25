@@ -1,11 +1,12 @@
 CC := /opt/homebrew/opt/llvm/bin/clang
+LIBFUZZER_NO_MAIN := /usr/lib/llvm-12/lib/clang/12.0.0/lib/linux/libclang_rt.fuzzer_no_main-x86_64.a
 
 UNAME := $(shell uname -s)
 ifeq ($(UNAME), Linux)
   CC := clang-12
 endif
 
-all: test server reset_mem
+all: test server_fuzz reset_mem
 
 libclient.a: CFLAGS := -g -O0
 libclient.a: client.o coverage.o
@@ -28,15 +29,20 @@ test: test.o libclient.a
 
 # end of makefile of program being fuzzed
 
-server: CFLAGS := -g -O0
-server: server.o
+server_fuzz: CFLAGS := -g -O0
+server_fuzz: LDFLAGS := -lpthread -lm
+server_fuzz: server.o $(LIBFUZZER_NO_MAIN)
+	$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $^
+
+# server: CFLAGS := -g -O0
+# server: server.o
 
 reset_mem: reset_mem.o
 
 clean:
 	rm -f test test.o
 	rm -f client.o coverage.o libclient.a
-	rm -f server server.o
+	rm -f server server.o server_fuzz
 	rm -f reset_mem reset_mem.o
 
 fresh: clean all

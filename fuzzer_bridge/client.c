@@ -68,7 +68,7 @@ static uintptr_t virt_to_phys_user(uintptr_t vaddr)
 
     PagemapEntry entry;
     if (pagemap_get_entry(&entry, pagemap_fd, vaddr)) {
-        puts("failed to get pagemap entry");
+//        puts("failed to get pagemap entry");
         exit(1);
     }
 
@@ -104,7 +104,7 @@ static void write_coverage_info(uint8_t* shared_mem, struct coverage_t* coverage
     memcpy(shared_mem + 8, &coverage_info_header, sizeof(coverage_info_header));
     shared_mem[0] = 2;
     while(shared_mem[0] != 0xff); // synchronize
-    printf("coverage_info_header: %zu %zu %zu\n", coverage_info_header.pcs_array_size, coverage_info_header.counters_array_size, coverage_info_header.trace_array_size);
+//    printf("coverage_info_header: %zu %zu %zu\n", coverage_info_header.pcs_array_size, coverage_info_header.counters_array_size, coverage_info_header.trace_array_size);
 
     memset(shared_mem + 0x800, 0, 0x800);
 
@@ -112,9 +112,9 @@ static void write_coverage_info(uint8_t* shared_mem, struct coverage_t* coverage
     uint64_t remaining_bytes = coverage_info_header.pcs_array_size * 8;
     int i = 0;
     while (remaining_bytes > 0) {
-        printf("remaining_bytes: %zu\n", remaining_bytes);
-        printf("shared 0 before: %d\n", ((uint32_t*)shared_mem)[0]);
-        printf("%d\n", ((uint32_t*)shared_mem)[1]);
+//        printf("remaining_bytes: %zu\n", remaining_bytes);
+//        printf("shared 0 before: %d\n", ((uint32_t*)shared_mem)[0]);
+//        printf("%d\n", ((uint32_t*)shared_mem)[1]);
         if (remaining_bytes >= 0x800) {
             memcpy(shared_mem + 0x800, (void*)coverage_info->pcs_array_start + i * 0x800, 0x800);
             remaining_bytes -= 0x800;
@@ -125,24 +125,24 @@ static void write_coverage_info(uint8_t* shared_mem, struct coverage_t* coverage
         ((uint32_t*)shared_mem)[0] = i;
         ((uint32_t*)shared_mem)[1] = -1;
         // wait for recv
-        printf("shared 0 after: %d\n", ((uint32_t*)shared_mem)[0]);
-        printf("shared_mem 1: %d, i: %d\n", ((uint32_t*)shared_mem)[1], i);
+//        printf("shared 0 after: %d\n", ((uint32_t*)shared_mem)[0]);
+//        printf("shared_mem 1: %d, i: %d\n", ((uint32_t*)shared_mem)[1], i);
         while (((uint32_t*)shared_mem)[1] != i);
-        printf("done\n");
+//        printf("done\n");
         i++;
     }
-    printf("done writing pcs array\n");
+//    printf("done writing pcs array\n");
     for (int i = 0 ; i < coverage_info_header.pcs_array_size; i++) {
-        printf("%3d: %lx\n", i, *(uint64_t*)(coverage_info->pcs_array_start + i*8));
+//        printf("%3d: %lx\n", i, *(uint64_t*)(coverage_info->pcs_array_start + i*8));
     }
 
     // write counters array
     remaining_bytes = coverage_info_header.counters_array_size;
     i = 0;
     while (remaining_bytes > 0) {
-        printf("remaining_bytes: %zu\n", remaining_bytes);
-        printf("shared 0 before: %d\n", ((uint32_t*)shared_mem)[0]);
-        printf("%d\n", ((uint32_t*)shared_mem)[1]);
+//        printf("remaining_bytes: %zu\n", remaining_bytes);
+//        printf("shared 0 before: %d\n", ((uint32_t*)shared_mem)[0]);
+//        printf("%d\n", ((uint32_t*)shared_mem)[1]);
         if (remaining_bytes >= 0x800) {
             memcpy(shared_mem + 0x800, (void*)coverage_info->counters_array_start + i * 0x800, 0x800);
             remaining_bytes -= 0x800;
@@ -153,15 +153,15 @@ static void write_coverage_info(uint8_t* shared_mem, struct coverage_t* coverage
         ((uint32_t*)shared_mem)[0] = i;
         ((uint32_t*)shared_mem)[1] = -1;
         // wait for recv
-        printf("shared 0 after: %d\n", ((uint32_t*)shared_mem)[0]);
-        printf("shared_mem 1: %d, i: %d\n", ((uint32_t*)shared_mem)[1], i);
+//        printf("shared 0 after: %d\n", ((uint32_t*)shared_mem)[0]);
+//        printf("shared_mem 1: %d, i: %d\n", ((uint32_t*)shared_mem)[1], i);
         while (((uint32_t*)shared_mem)[1] != i);
-        printf("done\n");
+//        printf("done\n");
         i++;
     }
-    printf("done writing counters array\n");
+//    printf("done writing counters array\n");
     for (int i = 0 ; i < coverage_info_header.counters_array_size; i++) {
-        printf("%3d: %02x\n", i, *(uint8_t*)(coverage_info->counters_array_start + i));
+//        printf("%3d: %02x\n", i, *(uint8_t*)(coverage_info->counters_array_start + i));
     }
 
     // done with everything
@@ -193,7 +193,7 @@ static uint8_t* setup_shared_mem(uint8_t* pci_memory) {
 
     // get its physical address
     paddr = virt_to_phys_user((uintptr_t)mem);
-    printf("paddr: 0x%lx, mem: 0x%lx\n", paddr, (uintptr_t)mem);
+//    printf("paddr: 0x%lx, mem: 0x%lx\n", paddr, (uintptr_t)mem);
 
     // tell snapshot device to link the physical page to the shared memory
     *(uint64_t*)(pci_memory + 0x10) = paddr;
@@ -228,7 +228,7 @@ int main(int argc, char** argv) {
     size = 0;
 
     // do initialization work here...
-    puts("initializing...");
+//    puts("initializing...");
 
     shared_mem = setup_shared_mem(pci_memory);
     // clear shared memory
@@ -238,8 +238,8 @@ int main(int argc, char** argv) {
     *(uint64_t*)(shared_mem + 0x8) = (uint64_t)(coverage_info->pcs_array_end - coverage_info->pcs_array_start) / sizeof(uint64_t);
     *(uint64_t*)(shared_mem + 0x10) = (uint64_t)(coverage_info->counters_array_end - coverage_info->counters_array_start);
     // debug print coverage array size and trace array size
-    printf("pcs array size: %zu\n", *(uint64_t*)(shared_mem + 0x8));
-    printf("counters array size %zu\n", *(uint64_t*)(shared_mem + 0x10));
+//    printf("pcs array size: %zu\n", *(uint64_t*)(shared_mem + 0x8));
+//    printf("counters array size %zu\n", *(uint64_t*)(shared_mem + 0x10));
     shared_mem[0] = 5;
     // wait for acknowledgement
     while (shared_mem[0] != 2);
@@ -248,17 +248,17 @@ int main(int argc, char** argv) {
 
 
     // initialization done
-    puts("initialization done");
+//    puts("initialization done");
 
-    puts("ready for snapshotting");
+//    puts("ready for snapshotting");
 
     // save a snapshot
     if (do_snapshots)
         *pci_memory_command = 0x101;
-    puts("in snapshotted code");
+//    puts("in snapshotted code");
 
     // read input data
-    puts("reading input...");
+//    puts("reading input...");
     // wait for input
     while (shared_mem[0] != 1);
     // reset polling byte to 0
@@ -266,30 +266,30 @@ int main(int argc, char** argv) {
     size = *(uint32_t*)(shared_mem + 4);
     memcpy(data, shared_mem + 8, size);
 
-    printf("running with input: size: %zu\n", size);
+//    printf("running with input: size: %zu\n", size);
     for (size_t i = 0; i < size; i++) {
-        printf("%02x ", data[i]);
+//        printf("%02x ", data[i]);
     }
-    printf("\n");
+//    printf("\n");
 
     run_fuzzer_once(data, size);
-    puts("done");
+//    puts("done");
 
-    puts("writing coverage info...");
+//    puts("writing coverage info...");
     coverage_info = get_coverage_info();
     write_coverage_info(shared_mem, coverage_info);
-    puts("done writing coverage info");
+//    puts("done writing coverage info");
 
-    puts("restoring...");
+//    puts("restoring...");
     // restore snapshot
     if (do_snapshots)
         *pci_memory_command = 0x102;
 
-    puts("ERROR: should not reach here");
+//    puts("ERROR: should not reach here");
 
     // release shared memory
     *pci_memory_command = 0x202;
-    puts("released shared memory");
+//    puts("released shared memory");
 
     // clear shared memory
     memset(shared_mem, 0, PAGE_SIZE);

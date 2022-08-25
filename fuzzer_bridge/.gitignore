@@ -3,3 +3,4 @@
 *.so
 test
 server
+server_fuzz
