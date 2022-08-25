@@ -48,6 +48,10 @@ static void print_counters() {
 // note: can be called multiple times with the same arguments
 void __sanitizer_cov_pcs_init(const uintptr_t *pcs_beg, const uintptr_t *pcs_end) {
     printf("%s: %p, %p\n", __func__, pcs_beg, pcs_end);
+    if (coverage_info.pcs_array_start != 0) {
+        printf("%s: already initialized\n", __func__);
+        exit(1);
+    }
     coverage_info.pcs_array_start = (uintptr_t)pcs_beg;
     coverage_info.pcs_array_end = (uintptr_t)pcs_end;
     print_pcs();
@@ -56,6 +60,10 @@ void __sanitizer_cov_pcs_init(const uintptr_t *pcs_beg, const uintptr_t *pcs_end
 // note: can be called multiple times with the same arguments
 void __sanitizer_cov_8bit_counters_init(char *start, char *end) {
     printf("%s: %p, %p\n", __func__, start, end);
+    if (coverage_info.counters_array_start != 0) {
+        printf("%s: already initialized\n", __func__);
+        exit(1);
+    }
     coverage_info.counters_array_start = (uintptr_t)start;
     coverage_info.counters_array_end = (uintptr_t)end;
     print_counters();

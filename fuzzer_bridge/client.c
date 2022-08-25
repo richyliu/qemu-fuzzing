@@ -81,24 +81,24 @@ static uintptr_t virt_to_phys_user(uintptr_t vaddr)
 static void write_coverage_info(uint8_t* shared_mem, struct coverage_t* coverage_info) {
     // TODO: write coverage info to host
     struct {
-        // these sizes are for the array (8 bytes per value)
+        // this size for the array (8 bytes per value)
         uint64_t pcs_array_size;
         uint64_t counters_array_size;
         uint64_t trace_array_size;
     } coverage_info_header;
 
-    // TEMP: test
-    uint64_t* data = malloc(0x1000);
-    memset(data, 1, 0x1000);
-    data[1] = 0xaabb;
-    data[0x101] = 0xccdd;
-    data[0x100] = 0xeeff;
-    data[0x1ff] = 0x1122;
-    coverage_info->pcs_array_start = (uintptr_t)data;
-    coverage_info->pcs_array_end = (uintptr_t)data + 0x1000;
+    /* // TEMP: test */
+    /* uint64_t* data = malloc(0x1000); */
+    /* memset(data, 1, 0x1000); */
+    /* data[1] = 0xaabb; */
+    /* data[0x101] = 0xccdd; */
+    /* data[0x100] = 0xeeff; */
+    /* data[0x1ff] = 0x1122; */
+    /* coverage_info->pcs_array_start = (uintptr_t)data; */
+    /* coverage_info->pcs_array_end = (uintptr_t)data + 0x1000; */
 
     coverage_info_header.pcs_array_size = (coverage_info->pcs_array_end - coverage_info->pcs_array_start) / sizeof(uint64_t);
-    coverage_info_header.counters_array_size = (coverage_info->counters_array_end - coverage_info->counters_array_start) / sizeof(uint64_t);
+    coverage_info_header.counters_array_size = coverage_info->counters_array_end - coverage_info->counters_array_start;
     coverage_info_header.trace_array_size = coverage_info->trace_array_size;
 
     memcpy(shared_mem + 8, &coverage_info_header, sizeof(coverage_info_header));
@@ -112,6 +112,7 @@ static void write_coverage_info(uint8_t* shared_mem, struct coverage_t* coverage
     uint64_t remaining_bytes = coverage_info_header.pcs_array_size * 8;
     int i = 0;
     while (remaining_bytes > 0) {
+        printf("remaining_bytes: %zu\n", remaining_bytes);
         printf("shared 0 before: %d\n", ((uint32_t*)shared_mem)[0]);
         printf("%d\n", ((uint32_t*)shared_mem)[1]);
         if (remaining_bytes >= 0x800) {
@@ -125,15 +126,47 @@ static void write_coverage_info(uint8_t* shared_mem, struct coverage_t* coverage
         ((uint32_t*)shared_mem)[1] = -1;
         // wait for recv
         printf("shared 0 after: %d\n", ((uint32_t*)shared_mem)[0]);
-        printf("%d\n", ((uint32_t*)shared_mem)[1]);
+        printf("shared_mem 1: %d, i: %d\n", ((uint32_t*)shared_mem)[1], i);
         while (((uint32_t*)shared_mem)[1] != i);
+        printf("done\n");
         i++;
     }
-
+    printf("done writing pcs array\n");
     for (int i = 0 ; i < coverage_info_header.pcs_array_size; i++) {
         printf("%3d: %lx\n", i, *(uint64_t*)(coverage_info->pcs_array_start + i*8));
     }
 
+    // write counters array
+    remaining_bytes = coverage_info_header.counters_array_size;
+    i = 0;
+    while (remaining_bytes > 0) {
+        printf("remaining_bytes: %zu\n", remaining_bytes);
+        printf("shared 0 before: %d\n", ((uint32_t*)shared_mem)[0]);
+        printf("%d\n", ((uint32_t*)shared_mem)[1]);
+        if (remaining_bytes >= 0x800) {
+            memcpy(shared_mem + 0x800, (void*)coverage_info->counters_array_start + i * 0x800, 0x800);
+            remaining_bytes -= 0x800;
+        } else {
+            memcpy(shared_mem + 0x800, (void*)coverage_info->counters_array_start + i * 0x800, remaining_bytes);
+            remaining_bytes = 0;
+        }
+        ((uint32_t*)shared_mem)[0] = i;
+        ((uint32_t*)shared_mem)[1] = -1;
+        // wait for recv
+        printf("shared 0 after: %d\n", ((uint32_t*)shared_mem)[0]);
+        printf("shared_mem 1: %d, i: %d\n", ((uint32_t*)shared_mem)[1], i);
+        while (((uint32_t*)shared_mem)[1] != i);
+        printf("done\n");
+        i++;
+    }
+    printf("done writing counters array\n");
+    for (int i = 0 ; i < coverage_info_header.counters_array_size; i++) {
+        printf("%3d: %02x\n", i, *(uint8_t*)(coverage_info->counters_array_start + i));
+    }
+
+    // done with everything
+    shared_mem[0] = 7;
+    while(shared_mem[0] != 8); // synchronize
 }
 
 /**
@@ -200,8 +233,19 @@ int main(int argc, char** argv) {
     shared_mem = setup_shared_mem(pci_memory);
     // clear shared memory
     memset(shared_mem, 0, PAGE_SIZE);
-    // test write to shared memory
-    shared_mem[0] = 0x43;
+    // write coverage array size and trace array size
+    coverage_info = get_coverage_info();
+    *(uint64_t*)(shared_mem + 0x8) = (uint64_t)(coverage_info->pcs_array_end - coverage_info->pcs_array_start) / sizeof(uint64_t);
+    *(uint64_t*)(shared_mem + 0x10) = (uint64_t)(coverage_info->counters_array_end - coverage_info->counters_array_start);
+    // debug print coverage array size and trace array size
+    printf("pcs array size: %zu\n", *(uint64_t*)(shared_mem + 0x8));
+    printf("counters array size %zu\n", *(uint64_t*)(shared_mem + 0x10));
+    shared_mem[0] = 5;
+    // wait for acknowledgement
+    while (shared_mem[0] != 2);
+    // reset polling byte to 0
+    shared_mem[0] = 0;
+
 
     // initialization done
     puts("initialization done");

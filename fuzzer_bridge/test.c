@@ -10,23 +10,39 @@ int fib(int n) {
 }
 
 void my_main(const uint8_t* data, size_t len) {
-    // find the maximum value in the array
-    uint8_t max = 0;
-    for (size_t i = 0; i < len; i++) {
-        if (data[i] > max) {
-            max = data[i];
-        }
+    int a = 1;
+    if (data[2] == 0) {
+        a = 0;
+    } else if (data[2] == 1) {
+        a = 0;
+    } else if (data[2] == 2) {
+        a = 0;
+    } else if (data[2] == 3) {
+        a = 0;
+    } else if (data[2] == 4) {
+        a = 0;
+    }
+    if (a == 2) {
+        *(volatile int*)0 = 0;
     }
 
-    // crash if there are consecutive max values
-    for (size_t i = 0; i < len; i++) {
-        if (data[i] == fib(i)) {
-            continue;
-        }
-        if (i > 0 && data[i] == max && data[i-1] == max) {
-            *(volatile int*)0 = 0;
-        }
-    }
+    /* // find the maximum value in the array */
+    /* uint8_t max = 0; */
+    /* for (size_t i = 0; i < len; i++) { */
+    /*     if (data[i] > max) { */
+    /*         max = data[i]; */
+    /*     } */
+    /* } */
+
+    /* // crash if there are consecutive max values */
+    /* for (size_t i = 0; i < len; i++) { */
+    /*     if (data[i] == fib(i)) { */
+    /*         continue; */
+    /*     } */
+    /*     if (i > 0 && data[i] == max && data[i-1] == max) { */
+    /*         *(volatile int*)0 = 0; */
+    /*     } */
+    /* } */
 }
 
 int LLVMFuzzerTestOneInput(const uint8_t *Data, size_t Size) {
