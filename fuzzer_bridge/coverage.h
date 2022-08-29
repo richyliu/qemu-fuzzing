@@ -6,18 +6,12 @@
 /* #define PRINT_VERBOSE */
 /* #define PRINT_TRACE_CMP */
 
-#define MAX_TRACE_ARR_SIZE 0x1000000
-
 struct coverage_t {
     uintptr_t pcs_array_start;
     uintptr_t pcs_array_end;
 
     uintptr_t counters_array_start;
     uintptr_t counters_array_end;
-
-    size_t trace_array_size;
-    size_t trace_counter;
-    uint64_t trace_array[MAX_TRACE_ARR_SIZE];
 };
 
 void coverage_init();
