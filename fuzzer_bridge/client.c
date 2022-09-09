@@ -220,12 +220,6 @@ int main(int argc, char** argv) {
     size = *(uint32_t*)(shared_mem + 4);
     memcpy(data, shared_mem + 8, size);
 
-    /* printf("running with input: size: %zu, values: ", size); */
-    /* for (size_t i = 0; i < size; i++) { */
-    /*     printf("%02x ", data[i]); */
-    /* } */
-    /* printf("\n"); */
-
     // run the code on the input
     run_fuzzer_once(data, size);
 

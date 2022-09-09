@@ -88,37 +88,41 @@ struct coverage_t* receive_coverage(uint8_t* shared_mem) {
 
 int run_fuzzer(const uint8_t *data, size_t size) {
     uint8_t* shared_mem = shared_mem_global;
-    static int iterations = 0;
-    static struct timeval start = {0};
 
-    if (iterations == 0) {
-        gettimeofday(&start, NULL);
+    // log time and inputs for debugging
+#ifndef DISABLE_LOGGING
+    struct timeval tv;
+    static int counter = 0;
+    static double prev = 0;
+    static double avg = 0; // exponential rolling average
+    double cur;
+    if (prev == 0) {
+        gettimeofday(&tv, NULL);
+        prev = tv.tv_sec + tv.tv_usec / 1000000.0;
     }
 
-    iterations++;
+    // log current time
+    counter++;
+    gettimeofday(&tv, NULL);
+    cur = tv.tv_sec + tv.tv_usec / 1000000.0;
+    avg = (cur - prev) * 0.1 + 0.9 * avg;
+    fprintf(stderr, "counter: %5d, average iters/sec: %f", counter, 1.0 / avg);
+    prev = cur;
 
-    // truncate to 0x10 bytes
-    if (size > 0x10) {
-        size = 0x10;
+    printf(", input: ");
+    for (int i = 0 ; i < size; i++) {
+        printf("%02x ", data[i]);
     }
+    printf("\n");
+#endif
 
-    if (iterations % 1 == 0) {
-        struct timeval t;
-        gettimeofday(&t, NULL);
-        double elapsed = (t.tv_sec - start.tv_sec) + (t.tv_usec - start.tv_usec) / 1000000.0;
-        printf("iter: %3d, elapsed: %f, iters/sec: %f", iterations, elapsed, iterations / elapsed);
-
-        printf(", input: ");
-        for (int i = 0 ; i < size; i++) {
-            printf("%02x ", data[i]);
-        }
-        printf("\n");
+    if (size > MAX_INPUT_SIZE) {
+        size = MAX_INPUT_SIZE;
     }
 
     // send inputs
     *(uint32_t*)(shared_mem + 4) = (uint32_t)size;
     memcpy(shared_mem + 8, data, size);
-    /* msync(shared_mem, 0x1000, MS_SYNC); */
     shared_mem[0] = 1;
 
     // wait for client to be done and receive coverage

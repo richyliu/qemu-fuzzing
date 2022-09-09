@@ -4,34 +4,13 @@ set -e
 
 export PATH="/home/richyliu/neojetset-qemu/build:$PATH"
 
-# username: root, password: alpine
-
-# to restore (with -incoming defer):
-# migrate_incoming "exec:cat migration_file_name"
-    # -incoming defer \
-
-    # -device edu \
-    # -device snapshot \
-
-# on guest:
-# https://unix.stackexchange.com/questions/230650/how-can-i-know-which-serial-port-corresponds-to-a-pci-card
-# - list devices with: lspci -v
-# - look for serial device
-# - correlate id with list from: setserial -g /dev/ttyS*
-# - usually on /dev/ttyS1 (?)
-
-# to connect over ssh:
-# ssh -p 2222 ubuntu@0.0.0.0
-
-# "$gdb" -ex 'handle SIGUSR1 nostop noprint' --args \
-eval \
-  qemu-system-x86_64 \
-    -m 512 \
-    -drive if=virtio,format=qcow2,file=disk2.qcow2 \
-    -drive if=virtio,format=raw,file=seed.img \
-    -device virtio-net-pci,netdev=net0 \
-    -netdev user,id=net0,hostfwd=tcp::2222-:22 \
-    -device snapshot \
-    -no-reboot \
-    -enable-kvm \
-    -nographic
+qemu-system-x86_64 \
+  -m 512 \
+  -drive if=virtio,format=qcow2,file=disk2.qcow2 \
+  -drive if=virtio,format=raw,file=seed.img \
+  -device virtio-net-pci,netdev=net0 \
+  -netdev user,id=net0,hostfwd=tcp::2222-:22 \
+  -device snapshot \
+  -no-reboot \
+  -enable-kvm \
+  -nographic
